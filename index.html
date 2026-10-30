@@ -13,6 +13,7 @@
             body * { visibility: hidden; }
             #printable-area, #printable-area * { visibility: visible; }
             #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .page-break { page-break-after: always; }
         }
         .bubble {
             width: 24px;
@@ -87,7 +88,7 @@
                         </form>
 
                         <div class="mt-6">
-                            <h3 class="text-sm font-semibold text-slate-600 mb-2">Alunos na Turma Selecionada:</h3>
+                            <h3 class="text-sm font-semibold text-slate-600 mb-2">Alunos na Turma Selecionada (Ordem Alfabética):</h3>
                             <div id="lista-alunos-container" class="max-h-48 overflow-y-auto border rounded-lg divide-y">
                                 <p class="p-3 text-sm text-slate-400">Selecione uma turma para ver os alunos.</p>
                             </div>
@@ -151,47 +152,22 @@
             <!-- ABA 3: IMPRIMIR GABARITOS -->
             <section id="tab-imprimir" class="tab-content hidden space-y-6">
                 <div class="bg-white p-6 rounded-xl shadow">
-                    <h2 class="text-lg font-semibold mb-4 text-indigo-600">Gerar Folha de Resposta Nominal</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-indigo-600">Gerar Folhas de Resposta da Sala</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Selecionar Prova</label>
                             <select id="print-prova-select" onchange="carregarTurmasDaProvaPrint()" class="w-full border rounded-lg px-3 py-2"></select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Selecionar Turma</label>
-                            <select id="print-turma-select" onchange="carregarAlunosPrint()" class="w-full border rounded-lg px-3 py-2"></select>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Selecionar Turma / Sala</label>
+                            <select id="print-turma-select" class="w-full border rounded-lg px-3 py-2"></select>
                         </div>
                     </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Selecionar Aluno</label>
-                        <select id="print-aluno-select" class="w-full border rounded-lg px-3 py-2"></select>
-                    </div>
-                    <button onclick="gerarFolhaResposta()" class="bg-slate-800 hover:bg-slate-900 text-white font-medium px-6 py-2 rounded-lg transition">Gerar Folha Individual</button>
+                    <button onclick="gerarFolhasTurmaInteira()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-lg transition w-full sm:w-auto">Gerar Folhas da Turma Inteira (PDF Único)</button>
                 </div>
 
-                <!-- Área de Impressão -->
-                <div id="printable-area" class="bg-white p-8 rounded-xl shadow border hidden">
-                    <!-- Cabeçalho Institucional e Detalhes da Prova/Sala -->
-                    <div class="text-center border-b pb-4 mb-4">
-                        <h1 class="text-2xl font-bold uppercase tracking-wide text-indigo-900">Escola São Tomaz de Aquino</h1>
-                        <p class="text-sm font-semibold text-slate-600 mt-1">CARTÃO-RESPOSTA / GABARITO OFICIAL DO ALUNO</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-6 bg-slate-50 p-4 rounded-lg border">
-                        <div><strong>Avaliação / Prova:</strong> <span id="lbl-prova-nome" class="text-indigo-700 font-bold"></span></div>
-                        <div><strong>Sala / Turma:</strong> <span id="lbl-turma-nome" class="text-indigo-700 font-bold"></span></div>
-                        <div><strong>Aluno(a):</strong> <span id="lbl-aluno-nome" class="font-bold"></span></div>
-                        <div><strong>ID Registro:</strong> <span id="lbl-aluno-id" class="text-xs text-slate-500"></span></div>
-                    </div>
-
-                    <div class="mb-6">
-                        <p class="text-xs text-slate-500 mb-2 font-semibold">Preencha completamente a bolha da alternativa correta com caneta azul ou preta:</p>
-                        <div id="folha-questoes-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"></div>
-                    </div>
-                    <div class="text-center text-xs text-slate-400 mt-8 pt-4 border-t">
-                        Escola São Tomaz de Aquino • Sistema de Leitura Automática de Gabaritos
-                    </div>
-                </div>
+                <!-- Área de Impressão (Múltiplas Páginas para a Turma Inteira) -->
+                <div id="printable-area" class="bg-white p-8 rounded-xl shadow border hidden space-y-8"></div>
             </section>
 
             <!-- ABA 4: LEITOR / SCANNER -->
@@ -204,7 +180,7 @@
                             <select id="scanner-prova-select" class="w-full border rounded-lg px-3 py-2"></select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">ID do Aluno (ou selecione da lista)</label>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Aluno (Ordenado em Ordem Alfabética)</label>
                             <select id="scanner-aluno-select" class="w-full border rounded-lg px-3 py-2"></select>
                         </div>
                     </div>
@@ -311,6 +287,10 @@
             const nome = document.getElementById('nome-aluno').value.trim();
             if(!turmaId || !nome) return;
             db.alunos.push({ id: 'a_' + Date.now(), turmaId, nome });
+            
+            // Ordenar alfabeticamente logo após inserir
+            db.alunos.sort((a, b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || ''));
+
             salvarDB();
             document.getElementById('nome-aluno').value = '';
             carregarAlunosDaTurma(turmaId);
@@ -341,7 +321,10 @@
 
         function carregarAlunosDaTurma(turmaId) {
             const container = document.getElementById('lista-alunos-container');
+            // Filtrar e ordenar alfabeticamente
             const alunos = db.alunos.filter(a => a.turmaId === turmaId);
+            alunos.sort((a, b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || ''));
+
             container.innerHTML = alunos.map(a => `<div class="p-2 text-sm flex justify-between items-center"><span>${a.nome || a.name}</span><button onclick="removerAluno('${a.id}')" class="text-red-500 hover:text-red-700 text-xs">Excluir</button></div>`).join('') || '<p class="p-3 text-sm text-slate-400">Nenhum aluno nesta turma.</p>';
         }
 
@@ -436,49 +419,77 @@
             const selectTurma = document.getElementById('print-turma-select');
             if(!prova) return;
             selectTurma.innerHTML = db.turmas.filter(t => prova.turmas.includes(t.id)).map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
-            carregarAlunosPrint();
         }
 
-        document.getElementById('print-turma-select')?.addEventListener('change', carregarAlunosPrint);
+        document.getElementById('print-prova-select')?.addEventListener('change', carregarTurmasDaProvaPrint);
 
-        function carregarAlunosPrint() {
-            const turmaId = document.getElementById('print-turma-select').value;
-            const selectAluno = document.getElementById('print-aluno-select');
-            const alunos = db.alunos.filter(a => a.turmaId === turmaId);
-            selectAluno.innerHTML = alunos.map(a => `<option value="${a.id}">${a.nome || a.name}</option>`).join('');
-        }
-
-        function gerarFolhaResposta() {
+        function gerarFolhasTurmaInteira() {
             const provaId = document.getElementById('print-prova-select').value;
             const turmaId = document.getElementById('print-turma-select').value;
-            const alunoId = document.getElementById('print-aluno-select').value;
 
             const prova = db.provas.find(p => p.id === provaId);
             const turma = db.turmas.find(t => t.id === turmaId);
-            const aluno = db.alunos.find(a => a.id === alunoId);
 
-            if(!prova || !turma || !aluno) {
-                alert('Selecione prova, turma e aluno corretamente.');
+            if(!prova || !turma) {
+                alert('Selecione a prova e a turma corretamente.');
                 return;
             }
 
-            document.getElementById('lbl-prova-nome').innerText = prova.nome;
-            document.getElementById('lbl-turma-nome').innerText = turma.nome;
-            document.getElementById('lbl-aluno-nome').innerText = aluno.nome || aluno.name;
-            document.getElementById('lbl-aluno-id').innerText = aluno.id;
+            // Pegar alunos da turma ordenados alfabeticamente
+            const alunosTurma = db.alunos.filter(a => a.turmaId === turmaId);
+            alunosTurma.sort((a, b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || ''));
 
-            const grid = document.getElementById('folha-questoes-grid');
-            const letras = ['A', 'B', 'C', 'D', 'E'];
-            let html = '';
-            for(let i=1; i<=prova.qtdQuestoes; i++) {
-                html += `<div class="border p-2 rounded text-center"><span class="text-xs font-bold block mb-1">${i}.</span><div class="flex justify-center gap-1">`;
-                for(let o=0; o<prova.qtdOpcoes; o++) {
-                    html += `<div class="bubble text-[10px] w-5 h-5">${letras[o]}</div>`;
-                }
-                html += `</div></div>`;
+            if(alunosTurma.length === 0) {
+                alert('Esta turma não possui alunos cadastrados.');
+                return;
             }
-            grid.innerHTML = html;
-            document.getElementById('printable-area').classList.remove('hidden');
+
+            const container = document.getElementById('printable-area');
+            let htmlCompleto = '';
+            const letras = ['A', 'B', 'C', 'D', 'E'];
+
+            alunosTurma.forEach((aluno, index) => {
+                let questoesHtml = '';
+                for(let i=1; i<=prova.qtdQuestoes; i++) {
+                    questoesHtml += `<div class="border p-2 rounded text-center"><span class="text-xs font-bold block mb-1">${i}.</span><div class="flex justify-center gap-1">`;
+                    for(let o=0; o<prova.qtdOpcoes; o++) {
+                        questoesHtml += `<div class="bubble text-[10px] w-5 h-5">${letras[o]}</div>`;
+                    }
+                    questoesHtml += `</div></div>`;
+                }
+
+                // Adiciona quebra de página para cada aluno, exceto o último
+                const quebraClasse = index < alunosTurma.length - 1 ? 'page-break mb-12 pb-8 border-b-2 border-dashed' : '';
+
+                htmlCompleto += `
+                    <div class="${quebraClasse}">
+                        <div class="text-center border-b pb-4 mb-4">
+                            <h1 class="text-2xl font-bold uppercase tracking-wide text-indigo-900">Escola São Tomaz de Aquino</h1>
+                            <p class="text-sm font-semibold text-slate-600 mt-1">CARTÃO-RESPOSTA / GABARITO OFICIAL DO ALUNO</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-6 bg-slate-50 p-4 rounded-lg border">
+                            <div><strong>Avaliação / Prova:</strong> <span class="text-indigo-700 font-bold">${prova.nome}</span></div>
+                            <div><strong>Sala / Turma:</strong> <span class="text-indigo-700 font-bold">${turma.nome}</span></div>
+                            <div><strong>Aluno(a):</strong> <span class="font-bold">${aluno.nome || aluno.name}</span></div>
+                            <div><strong>ID Registro:</strong> <span class="text-xs text-slate-500">${aluno.id}</span></div>
+                        </div>
+
+                        <div class="mb-6">
+                            <p class="text-xs text-slate-500 mb-2 font-semibold">Preencha completamente a bolha da alternativa correta com caneta azul ou preta:</p>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                ${questoesHtml}
+                            </div>
+                        </div>
+                        <div class="text-center text-xs text-slate-400 mt-6 pt-4 border-t">
+                            Escola São Tomaz de Aquino • Sistema de Leitura Automática de Gabaritos
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = htmlCompleto;
+            container.classList.remove('hidden');
             window.print();
         }
 
@@ -496,8 +507,14 @@
             const selectAluno = document.getElementById('scanner-aluno-select');
             if(!prova) return;
             const turmasPermitidas = prova.turmas;
-            const alunos = db.alunos.filter(a => turmasPermitidas.includes(a.turmaId));
-            selectAluno.innerHTML = alunos.map(a => `<option value="${a.id}">${a.nome || a.name} (${a.id})</option>`).join('');
+            
+            let alunos = db.alunos.filter(a => turmasPermitidas.includes(a.turmaId));
+            alunos.sort((a, b) => (a.nome || a.name || '').localeCompare(b.nome || b.name || ''));
+
+            selectAluno.innerHTML = alunos.map(a => {
+                const t = db.turmas.find(tur => tur.id === a.turmaId);
+                return `<option value="${a.id}">${a.nome || a.name} (${t ? t.nome : 'Turma'})</option>`;
+            }).join('') || '<option>Nenhum aluno nas turmas desta prova</option>';
         }
 
         function processarFotoGabarito(event) {
